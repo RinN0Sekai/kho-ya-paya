@@ -1,25 +1,42 @@
 """
 Vercel Python serverless entry point for Kho-Ya-Paya.
 
-Vercel's @vercel/python runtime uses a `handler` subclassing BaseHTTPRequestHandler —
-which is exactly what the app's server already is. We just put the data dirs on sys.path,
-seed the two node replicas into /tmp on cold start, and expose the existing handler.
+Vercel's @vercel/python runtime detects a top-level `handler` subclassing
+BaseHTTPRequestHandler at BUILD time, so we must NOT do heavy imports / data loading at
+module import. Instead `handler` is a thin shell: on the first request it lazily imports
+the real app (server.H, which loads the engine + seeds the two node replicas into /tmp),
+rebinds itself to that class, and re-dispatches. Subsequent requests reuse the warm app.
 
-CAVEAT: Vercel is serverless/stateless. The seeded matching data, map, reachability,
-hotspots and name-check all work per request. But mutable demo state (records added via
-Load demo, the online/offline toggle, courier sync) lives in module memory and resets on
-cold starts / across instances. For the full offline + partition demo, run it as a process
-(locally, or on Render/Railway/Fly via the Procfile) — that is the app's real deploy target.
+CAVEAT: Vercel is serverless/stateless. Search, map, reachability, hotspots and the
+name-check work per request. Mutable demo state (records added via Load demo, the
+online/offline toggle, courier sync) lives in module memory and resets on cold starts.
+For the full offline + partition demo, run it as a process (locally, or on Render/Railway
+via the Procfile) — that is the app's real deploy target.
 """
+from http.server import BaseHTTPRequestHandler
 import os, sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "kho-ya-paya"))
-sys.path.insert(0, os.path.join(ROOT, "setu"))
+_APP = {"H": None}
 
-import server  # noqa: E402
+def _load():
+    if _APP["H"] is None:
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for d in ("kho-ya-paya", "setu"):
+            p = os.path.join(root, d)
+            if p not in sys.path:
+                sys.path.insert(0, p)
+        import server
+        if not server.NODES:
+            server.boot(dbdir="/tmp")          # /tmp is the only writable dir on Vercel
+        _APP["H"] = server.H
+    return _APP["H"]
 
-if not server.NODES:                 # seed once per cold start; /tmp is the only writable dir
-    server.boot(dbdir="/tmp")
 
-handler = server.H                   # Vercel invokes this BaseHTTPRequestHandler
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.__class__ = _load()
+        self.do_GET()
+
+    def do_POST(self):
+        self.__class__ = _load()
+        self.do_POST()
