@@ -1,16 +1,10 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb",
-        "includeFiles": ["setu/**", "kho-ya-paya/**", "claude-impact-labs-data/**"]
-      }
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "**"
     }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "/api/index" }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
   ]
 }
