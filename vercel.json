@@ -1,12 +1,16 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "api/index.py": {
-      "includeFiles": "{setu/**,kho-ya-paya/static/**,kho-ya-paya/*.py,claude-impact-labs-data/**}",
-      "maxDuration": 30
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb",
+        "includeFiles": ["setu/**", "kho-ya-paya/**", "claude-impact-labs-data/**"]
+      }
     }
-  },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/api/index" }
   ]
 }
