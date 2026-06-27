@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kho-Ya-Paya — Kumbh reunification</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+<header>
+  <div class="logo">Kho-Ya-Paya <small>Kumbh Mela 2027 · cross-center reunification</small></div>
+  <div class="grow"></div>
+  <div class="netpill"><span id="netdot" class="dot"></span><span id="nettext">online</span></div>
+  <button class="btn ghost" id="demoBtn">🎬 Load demo</button>
+  <button class="btn ghost" id="toggleNet">Pull the cable</button>
+  <button class="btn" id="syncBtn">📨 Courier sync</button>
+</header>
+
+<nav class="tabs">
+  <button data-tab="intake" class="active">Intake</button>
+  <button data-tab="queue">Match queue</button>
+  <button data-tab="map">Operational map</button>
+  <button data-tab="dash">Control room</button>
+</nav>
+
+<main>
+  <!-- INTAKE -->
+  <section id="tab-intake">
+    <div class="card">
+      <h2>Operator intake</h2>
+      <div class="sub">Voice + icon first. The lost person never types — the operator does. Works with no name, no phone, no photo.</div>
+
+      <div class="row" style="margin-bottom:6px">
+        <span class="pill">Center</span>
+        <div class="choice" id="nodePick">
+          <button class="opt sel" data-node="A"><span class="ic">🅰️</span>Center A</button>
+          <button class="opt" data-node="B"><span class="ic">🅱️</span>Center B</button>
+        </div>
+      </div>
+
+      <label class="fld">What are you reporting?</label>
+      <div class="bigchoice" id="kindPick">
+        <button class="opt sel" data-kind="missing"><span class="ic">🔍</span><div>Someone is missing<small>a family is searching</small></div></button>
+        <button class="opt" data-kind="found"><span class="ic">🙋</span><div>I found a person<small>a confused / lost person is here</small></div></button>
+      </div>
+
+      <label class="fld">Language spoken</label>
+      <div class="langgrid" id="langPick"></div>
+
+      <div class="grid2">
+        <div>
+          <label class="fld">Approx. age</label>
+          <div class="choice" id="agePick"></div>
+          <label class="fld">Gender (as observed)</label>
+          <div class="choice" id="genderPick">
+            <button class="opt" data-g="Male"><span class="ic">👨</span>Male</button>
+            <button class="opt" data-g="Female"><span class="ic">👩</span>Female</button>
+            <button class="opt" data-g="Unknown"><span class="ic">❔</span>Unknown</button>
+          </div>
+        </div>
+        <div>
+          <label class="fld">Last seen / found at</label>
+          <select id="place"></select>
+          <label class="fld">State of origin (if known)</label>
+          <input type="text" id="state" placeholder="often unknown for a found elder">
+          <label class="fld">Name (often blank — that's OK)</label>
+          <input type="text" id="name" placeholder="leave empty if unknown">
+        </div>
+      </div>
+
+      <label class="fld">Description <button class="btn" id="voiceBtn" style="padding:4px 10px;font-size:13px">🎤 speak</button></label>
+      <textarea id="desc" placeholder="e.g. old woman, white saree, walks with a stick, hard of hearing"></textarea>
+
+      <label class="fld">Family contact phone (optional)</label>
+      <input type="text" id="mobile" placeholder="the family's number — never the lost person's">
+
+      <div class="row" style="margin-top:18px">
+        <button class="btn primary lg" id="submitIntake">Register &amp; search all centers</button>
+        <span id="intakeNote" class="sub" style="margin:0"></span>
+      </div>
+    </div>
+
+    <div class="card hidden" id="resultCard">
+      <h2>Cross-center matches</h2>
+      <div class="sub" id="resultSub"></div>
+      <div id="results"></div>
+    </div>
+  </section>
+
+  <!-- QUEUE -->
+  <section id="tab-queue" class="hidden">
+    <div class="card">
+      <h2>Search the registry by description</h2>
+      <div class="sub">Confirm-only results — no names are shown until an operator opens a record (audited).</div>
+      <div class="row">
+        <select id="qNode" style="max-width:140px"><option value="A">Center A</option><option value="B">Center B</option></select>
+        <input type="text" id="qDesc" placeholder="elderly man, white kurta, walking stick…" style="flex:1;min-width:240px">
+        <select id="qPlace" style="max-width:200px"></select>
+        <button class="btn primary" id="qSearch">Search</button>
+      </div>
+      <div id="qResults" style="margin-top:14px"></div>
+    </div>
+    <div class="card">
+      <h2>✨ Cross-script name check <span class="pill" id="claudeStatus">Claude…</span></h2>
+      <div class="sub">The language barrier: one name romanizes 5 ways across 10 scripts. Claude judges whether two names are the same person — the deterministic matcher alone misses Lokkhi == Lakshmi.</div>
+      <div class="row">
+        <input type="text" id="nameA" value="Lakshmi" style="max-width:200px">
+        <span style="font-weight:600;color:var(--muted)">vs</span>
+        <input type="text" id="nameB" value="Lokkhi" style="max-width:200px">
+        <button class="btn primary" id="nameCheck">Check</button>
+      </div>
+      <div id="nameResult" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <!-- MAP -->
+  <section id="tab-map" class="hidden">
+    <div class="card">
+      <h2>Operational map — risk, coverage &amp; reachability</h2>
+      <div class="sub">Real KML data: chokepoint risk levels, 4,079 cameras, 14 police stations. Pick a place + time to see how far a lost person could have gone.</div>
+      <div class="row" style="margin-bottom:12px">
+        <select id="rPlace" style="max-width:220px"></select>
+        <select id="rDate" style="max-width:240px"></select>
+        <label class="fld" style="margin:0">last seen <input type="text" id="rT0" value="12" style="width:54px;display:inline-block;padding:6px"></label>
+        <label class="fld" style="margin:0">now <input type="text" id="rT1" value="14" style="width:54px;display:inline-block;padding:6px"></label>
+        <button class="btn primary" id="rGo">Show search area</button>
+        <span id="rInfo" class="sub" style="margin:0"></span>
+      </div>
+      <div id="map"></div>
+      <div class="legend">
+        <span class="k"><span class="swatch" style="background:#cf3b3b"></span>very-high risk</span>
+        <span class="k"><span class="swatch" style="background:#cf8a00"></span>high</span>
+        <span class="k"><span class="swatch" style="background:#1d9e75"></span>medium</span>
+        <span class="k"><span class="swatch" style="background:#2b6cb0"></span>police</span>
+        <span class="k"><span class="swatch" style="background:#9a8;opacity:.6"></span>cameras (sampled)</span>
+        <span class="k"><span class="swatch" style="background:#e87722"></span>reachable area</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="tab-dash" class="hidden">
+    <div class="card">
+      <h2>Control room</h2>
+      <div class="sub">Two centers, two SQLite replicas. The whole node is pure-stdlib Python — runs on an $800 offline box.</div>
+      <div class="grid2" id="nodeStats"></div>
+    </div>
+    <div class="card">
+      <h2>Predicted separation hotspots</h2>
+      <div class="sub">Risk-weighted, snan-aware. Pre-position kiosks &amp; volunteers here.</div>
+      <div class="row" style="margin-bottom:10px">
+        <label class="fld" style="margin:0">day</label>
+        <select id="hSnan" style="max-width:300px"></select>
+      </div>
+      <div id="hotspots"></div>
+    </div>
+    <div class="card">
+      <h2>Audit trail</h2>
+      <div class="sub">Every PII access is logged — privacy enforced in code.</div>
+      <div class="audit" id="auditLog"></div>
+    </div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

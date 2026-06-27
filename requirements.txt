@@ -1,0 +1,1 @@
+# Kho-Ya-Paya is pure Python stdlib — no third-party dependencies.
